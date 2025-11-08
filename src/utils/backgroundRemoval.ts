@@ -1,110 +1,84 @@
-import { pipeline, env } from '@huggingface/transformers';
-
-// Configure transformers.js
-env.allowLocalModels = false;
-env.useBrowserCache = false;
-
-const MAX_IMAGE_DIMENSION = 1024;
-
-function resizeImageIfNeeded(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, image: HTMLImageElement) {
-  let width = image.naturalWidth;
-  let height = image.naturalHeight;
-
-  if (width > MAX_IMAGE_DIMENSION || height > MAX_IMAGE_DIMENSION) {
-    if (width > height) {
-      height = Math.round((height * MAX_IMAGE_DIMENSION) / width);
-      width = MAX_IMAGE_DIMENSION;
-    } else {
-      width = Math.round((width * MAX_IMAGE_DIMENSION) / height);
-      height = MAX_IMAGE_DIMENSION;
-    }
-
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(image, 0, 0, width, height);
-    return true;
-  }
-
-  canvas.width = width;
-  canvas.height = height;
-  ctx.drawImage(image, 0, 0);
-  return false;
-}
+import { supabase } from '@/integrations/supabase/client';
 
 export const removeBackground = async (imageElement: HTMLImageElement, addWatermark: boolean = false): Promise<Blob> => {
   try {
-    console.log('Starting background removal process...');
-    const segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
-      device: 'webgpu',
-    });
+    console.log('Starting professional background removal with remove.bg...');
     
+    // Convert image to base64
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     
     if (!ctx) throw new Error('Could not get canvas context');
     
-    const wasResized = resizeImageIfNeeded(canvas, ctx, imageElement);
-    console.log(`Image ${wasResized ? 'was' : 'was not'} resized. Final dimensions: ${canvas.width}x${canvas.height}`);
+    canvas.width = imageElement.naturalWidth;
+    canvas.height = imageElement.naturalHeight;
+    ctx.drawImage(imageElement, 0, 0);
     
-    const imageData = canvas.toDataURL('image/jpeg', 0.8);
-    console.log('Image converted to base64');
+    const imageBase64 = canvas.toDataURL('image/png');
     
-    console.log('Processing with segmentation model...');
-    const result = await segmenter(imageData);
-    
-    console.log('Segmentation result:', result);
-    
-    if (!result || !Array.isArray(result) || result.length === 0 || !result[0].mask) {
-      throw new Error('Invalid segmentation result');
+    // Call the edge function
+    const { data, error } = await supabase.functions.invoke('remove-background', {
+      body: { imageBase64 }
+    });
+
+    if (error) {
+      console.error('Edge function error:', error);
+      throw new Error('Failed to remove background');
     }
-    
-    const outputCanvas = document.createElement('canvas');
-    outputCanvas.width = canvas.width;
-    outputCanvas.height = canvas.height;
-    const outputCtx = outputCanvas.getContext('2d');
-    
-    if (!outputCtx) throw new Error('Could not get output canvas context');
-    
-    outputCtx.drawImage(canvas, 0, 0);
-    
-    const outputImageData = outputCtx.getImageData(0, 0, outputCanvas.width, outputCanvas.height);
-    const data = outputImageData.data;
-    
-    for (let i = 0; i < result[0].mask.data.length; i++) {
-      const alpha = Math.round((1 - result[0].mask.data[i]) * 255);
-      data[i * 4 + 3] = alpha;
+
+    if (!data.success) {
+      throw new Error(data.error || 'Background removal failed');
     }
-    
-    outputCtx.putImageData(outputImageData, 0, 0);
+
+    // Convert base64 result back to blob
+    const response = await fetch(data.image);
+    const blob = await response.blob();
     
     // Add watermark if requested
     if (addWatermark) {
-      outputCtx.font = '14px Inter, sans-serif';
-      outputCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
-      outputCtx.textAlign = 'center';
-      outputCtx.fillText('Made by Vinay Kola', outputCanvas.width / 2, outputCanvas.height - 20);
+      const watermarkedBlob = await addWatermarkToBlob(blob);
+      return watermarkedBlob;
     }
     
-    console.log('Mask applied successfully');
-    
-    return new Promise((resolve, reject) => {
-      outputCanvas.toBlob(
-        (blob) => {
-          if (blob) {
-            console.log('Successfully created final blob');
-            resolve(blob);
-          } else {
-            reject(new Error('Failed to create blob'));
-          }
-        },
-        'image/png',
-        1.0
-      );
-    });
+    console.log('Background removal successful');
+    return blob;
   } catch (error) {
     console.error('Error removing background:', error);
     throw error;
   }
+};
+
+const addWatermarkToBlob = async (blob: Blob): Promise<Blob> => {
+  const img = await createImageBitmap(blob);
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+  
+  if (!ctx) throw new Error('Could not get canvas context');
+  
+  canvas.width = img.width;
+  canvas.height = img.height;
+  
+  ctx.drawImage(img, 0, 0);
+  
+  // Add watermark
+  ctx.font = '14px Inter, sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Made by Vinay Kola', canvas.width / 2, canvas.height - 20);
+  
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      (watermarkedBlob) => {
+        if (watermarkedBlob) {
+          resolve(watermarkedBlob);
+        } else {
+          reject(new Error('Failed to create watermarked blob'));
+        }
+      },
+      'image/png',
+      1.0
+    );
+  });
 };
 
 export const loadImage = (file: Blob): Promise<HTMLImageElement> => {
@@ -115,3 +89,4 @@ export const loadImage = (file: Blob): Promise<HTMLImageElement> => {
     img.src = URL.createObjectURL(file);
   });
 };
+
