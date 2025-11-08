@@ -47,9 +47,16 @@ serve(async (req) => {
 
     const resultBlob = await response.blob();
     const arrayBuffer = await resultBlob.arrayBuffer();
-    const base64Result = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    );
+    
+    // Convert to base64 efficiently for large images
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    const chunkSize = 0x8000; // Process in chunks to avoid stack overflow
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64Result = btoa(binary);
 
     console.log('Background removal successful');
 
