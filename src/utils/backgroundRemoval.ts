@@ -34,7 +34,7 @@ function resizeImageIfNeeded(canvas: HTMLCanvasElement, ctx: CanvasRenderingCont
 export const removeBackground = async (imageElement: HTMLImageElement, addWatermark: boolean = false): Promise<Blob> => {
   try {
     console.log('Starting background removal process...');
-    const segmenter = await pipeline('image-segmentation', 'Xenova/segformer-b0-finetuned-ade-512-512', {
+    const segmenter = await pipeline('image-segmentation', 'briaai/RMBG-1.4', {
       device: 'webgpu',
     });
     
