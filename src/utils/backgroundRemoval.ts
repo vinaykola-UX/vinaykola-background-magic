@@ -41,7 +41,14 @@ export const removeBackground = async (imageElement: HTMLImageElement, addWaterm
     }
 
     if (!data.success) {
-      throw new Error(data.error || 'Background removal failed');
+      const errorMessage = data.error || 'Background removal failed';
+      
+      // Provide helpful message for common errors
+      if (errorMessage.includes('Could not identify foreground')) {
+        throw new Error('Could not detect a clear subject in your image. Please use photos with a clear person, animal, or object in the foreground. Group photos or complex scenes may not work well.');
+      }
+      
+      throw new Error(errorMessage);
     }
 
     // Convert base64 result back to blob
