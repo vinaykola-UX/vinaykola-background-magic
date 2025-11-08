@@ -25,8 +25,12 @@ serve(async (req) => {
 
     console.log('Processing background removal with remove.bg API...');
 
-    // Convert base64 to blob for form data
-    const base64Data = imageBase64.split(',')[1];
+    // Extract clean base64 data without data URL prefix
+    const base64Data = imageBase64.includes(',') 
+      ? imageBase64.split(',')[1] 
+      : imageBase64;
+    
+    // Create form data with the base64 image
     const formData = new FormData();
     formData.append('image_file_b64', base64Data);
     formData.append('size', 'auto');
