@@ -11,7 +11,7 @@ export const removeBackground = async (imageElement: HTMLImageElement, addWaterm
     if (!ctx) throw new Error('Could not get canvas context');
     
     // Resize image if too large (remove.bg has size limits)
-    const maxDimension = 10000000; // 10 megapixels
+    const maxDimension = 4000000; // 4 megapixels (e.g., 2000x2000) for better API compatibility
     let width = imageElement.naturalWidth;
     let height = imageElement.naturalHeight;
     
@@ -27,8 +27,8 @@ export const removeBackground = async (imageElement: HTMLImageElement, addWaterm
     canvas.height = height;
     ctx.drawImage(imageElement, 0, 0, width, height);
     
-    // Use JPEG with high quality to reduce file size while maintaining quality
-    const imageBase64 = canvas.toDataURL('image/jpeg', 0.95);
+    // Use JPEG with good quality to balance file size and quality
+    const imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
     
     // Call the edge function
     const { data, error } = await supabase.functions.invoke('remove-background', {
