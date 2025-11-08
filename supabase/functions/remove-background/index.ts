@@ -30,6 +30,8 @@ serve(async (req) => {
       ? imageBase64.split(',')[1] 
       : imageBase64;
     
+    console.log('Base64 data length:', base64Data.length);
+    
     // Create form data with the base64 image
     const formData = new FormData();
     formData.append('image_file_b64', base64Data);
@@ -46,7 +48,14 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Remove.bg API error:', response.status, errorText);
-      throw new Error(`Remove.bg API error: ${response.status}`);
+      let errorDetails;
+      try {
+        errorDetails = JSON.parse(errorText);
+        console.error('Error details:', errorDetails);
+      } catch {
+        console.error('Could not parse error response');
+      }
+      throw new Error(`Remove.bg API error: ${response.status} - ${errorDetails?.errors?.[0]?.title || 'Unknown error'}`);
     }
 
     const resultBlob = await response.blob();
