@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { HfInference } from "https://esm.sh/@huggingface/inference@2.3.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,7 +14,6 @@ serve(async (req) => {
   try {
     const formData = await req.formData();
     const image = formData.get('image');
-    const upscaleLevel = formData.get('upscale_level') || '2';
 
     if (!image) {
       return new Response(
@@ -22,42 +22,38 @@ serve(async (req) => {
       );
     }
 
-    const DEEPAI_API_KEY = Deno.env.get('DEEPAI_API_KEY');
-    if (!DEEPAI_API_KEY) {
-      console.error('DEEPAI_API_KEY is not configured');
+    const HUGGING_FACE_ACCESS_TOKEN = Deno.env.get('HUGGING_FACE_ACCESS_TOKEN');
+    if (!HUGGING_FACE_ACCESS_TOKEN) {
+      console.error('HUGGING_FACE_ACCESS_TOKEN is not configured');
       return new Response(
         JSON.stringify({ error: 'API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Sending image to DeepAI API for enhancement...');
+    console.log('Enhancing image with HuggingFace...');
 
-    const deepAIFormData = new FormData();
-    deepAIFormData.append('image', image);
+    const hf = new HfInference(HUGGING_FACE_ACCESS_TOKEN);
 
-    const response = await fetch('https://api.deepai.org/api/torch-srgan', {
-      method: 'POST',
-      headers: {
-        'api-key': DEEPAI_API_KEY,
-      },
-      body: deepAIFormData,
+    // Convert File/Blob to ArrayBuffer for HuggingFace
+    const imageBlob = image as Blob;
+    const imageBuffer = await imageBlob.arrayBuffer();
+
+    // Use a super-resolution model for image enhancement
+    const enhancedImage = await hf.imageToImage({
+      model: "caidas/swin2SR-classical-sr-x2-64",
+      inputs: new Blob([imageBuffer]),
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('DeepAI API error:', response.status, errorText);
-      return new Response(
-        JSON.stringify({ error: 'Image enhancement failed', details: errorText }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+    // Convert the enhanced image to base64
+    const arrayBuffer = await enhancedImage.arrayBuffer();
+    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+    const output_url = `data:image/png;base64,${base64}`;
 
-    const result = await response.json();
-    console.log('Enhancement successful:', result);
+    console.log('Enhancement successful');
 
     return new Response(
-      JSON.stringify(result),
+      JSON.stringify({ output_url }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
