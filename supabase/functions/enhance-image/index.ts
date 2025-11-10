@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { HfInference } from "https://esm.sh/@huggingface/inference@2.3.2";
+import Replicate from "https://esm.sh/replicate@0.25.2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +14,8 @@ serve(async (req) => {
   try {
     const formData = await req.formData();
     const image = formData.get('image');
+    const upscaleLevelRaw = formData.get('upscale_level');
+    const upscaleLevel = upscaleLevelRaw ? upscaleLevelRaw.toString() : '2';
 
     if (!image) {
       return new Response(
@@ -22,38 +24,43 @@ serve(async (req) => {
       );
     }
 
-    const HUGGING_FACE_ACCESS_TOKEN = Deno.env.get('HUGGING_FACE_ACCESS_TOKEN');
-    if (!HUGGING_FACE_ACCESS_TOKEN) {
-      console.error('HUGGING_FACE_ACCESS_TOKEN is not configured');
+    const REPLICATE_API_TOKEN = Deno.env.get('REPLICATE_API_TOKEN');
+    if (!REPLICATE_API_TOKEN) {
+      console.error('REPLICATE_API_TOKEN is not configured');
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
+        JSON.stringify({ error: 'API token not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Enhancing image with HuggingFace...');
+    console.log('Enhancing image with Replicate...');
 
-    const hf = new HfInference(HUGGING_FACE_ACCESS_TOKEN);
-
-    // Convert File/Blob to ArrayBuffer for HuggingFace
-    const imageBlob = image as Blob;
-    const imageBuffer = await imageBlob.arrayBuffer();
-
-    // Use a super-resolution model for image enhancement
-    const enhancedImage = await hf.imageToImage({
-      model: "caidas/swin2SR-classical-sr-x2-64",
-      inputs: new Blob([imageBuffer]),
+    const replicate = new Replicate({
+      auth: REPLICATE_API_TOKEN,
     });
 
-    // Convert the enhanced image to base64
-    const arrayBuffer = await enhancedImage.arrayBuffer();
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-    const output_url = `data:image/png;base64,${base64}`;
+    // Convert image to base64
+    const imageBlob = image as Blob;
+    const imageBuffer = await imageBlob.arrayBuffer();
+    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    const dataUrl = `data:${imageBlob.type};base64,${base64Image}`;
+
+    // Use Replicate's Real-ESRGAN model for super-resolution
+    const output = await replicate.run(
+      "nightmareai/real-esrgan:42fed1c4974146d4d2414e2be2c5277c7fcf05fcc3a73abf41610695738c1d7b",
+      {
+        input: {
+          image: dataUrl,
+          scale: parseInt(upscaleLevel),
+          face_enhance: false,
+        }
+      }
+    ) as string;
 
     console.log('Enhancement successful');
 
     return new Response(
-      JSON.stringify({ output_url }),
+      JSON.stringify({ output_url: output }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
