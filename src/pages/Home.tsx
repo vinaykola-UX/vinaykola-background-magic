@@ -2,6 +2,7 @@ import { Sparkles, Zap, Shield, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import ImageUploader from "@/components/ImageUploader";
+import PhotoEnhancer from "@/components/PhotoEnhancer";
 import heroImage from "@/assets/hero-background.jpg";
 
 const Home = () => {
@@ -107,6 +108,20 @@ const Home = () => {
           
           <div className="max-w-5xl mx-auto">
             <ImageUploader />
+          </div>
+        </div>
+      </section>
+
+      {/* AI Photo Enhancer Section */}
+      <section className="py-20 bg-card/30">
+        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold mb-4">AI Photo Enhancer</h2>
+            <p className="text-xl text-muted-foreground">Enhance your images with AI-powered upscaling</p>
+          </div>
+          
+          <div className="max-w-5xl mx-auto">
+            <PhotoEnhancer />
           </div>
         </div>
       </section>
