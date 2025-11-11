@@ -14,13 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      otp_codes: {
+        Row: {
+          code: string
+          created_at: string
+          expires_at: string
+          id: string
+          type: string
+          value: string
+          verified: boolean | null
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          type: string
+          value: string
+          verified?: boolean | null
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          type?: string
+          value?: string
+          verified?: boolean | null
+        }
+        Relationships: []
+      }
+      otp_logs: {
+        Row: {
+          action: string
+          created_at: string
+          error_message: string | null
+          id: string
+          success: boolean
+          type: string
+          value: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          success: boolean
+          type: string
+          value: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          success?: boolean
+          type?: string
+          value?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      cleanup_expired_otps: { Args: never; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
