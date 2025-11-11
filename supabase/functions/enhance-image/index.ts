@@ -39,10 +39,19 @@ serve(async (req) => {
       auth: REPLICATE_API_TOKEN,
     });
 
-    // Convert image to base64
+    // Convert image to base64 in chunks to avoid stack overflow
     const imageBlob = image as Blob;
     const imageBuffer = await imageBlob.arrayBuffer();
-    const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+    const uint8Array = new Uint8Array(imageBuffer);
+    
+    // Process in chunks to avoid "Maximum call stack size exceeded"
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64Image = btoa(binary);
     const dataUrl = `data:${imageBlob.type};base64,${base64Image}`;
 
     // Use Replicate's Real-ESRGAN model for super-resolution
