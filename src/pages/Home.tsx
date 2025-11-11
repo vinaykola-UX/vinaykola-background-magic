@@ -1,8 +1,9 @@
-import { Sparkles, Zap, Shield, Download } from "lucide-react";
+import { Sparkles, Zap, Shield, Download, KeyRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import ImageUploader from "@/components/ImageUploader";
 import PhotoEnhancer from "@/components/PhotoEnhancer";
+import { Link } from "react-router-dom";
 import heroImage from "@/assets/hero-background.jpg";
 
 const Home = () => {
@@ -41,6 +42,16 @@ const Home = () => {
                   <Sparkles className="mr-2 h-5 w-5" />
                   Try Now - It's Free
                 </Button>
+                <Link to="/otp-login">
+                  <Button 
+                    size="lg" 
+                    variant="outline"
+                    className="text-lg px-8"
+                  >
+                    <KeyRound className="mr-2 h-5 w-5" />
+                    OTP Login
+                  </Button>
+                </Link>
               </div>
             </div>
             
