@@ -14,63 +14,62 @@ export type Database = {
   }
   public: {
     Tables: {
-      otp_codes: {
-        Row: {
-          code: string
-          created_at: string
-          expires_at: string
-          id: string
-          type: string
-          value: string
-          verified: boolean | null
-        }
-        Insert: {
-          code: string
-          created_at?: string
-          expires_at: string
-          id?: string
-          type: string
-          value: string
-          verified?: boolean | null
-        }
-        Update: {
-          code?: string
-          created_at?: string
-          expires_at?: string
-          id?: string
-          type?: string
-          value?: string
-          verified?: boolean | null
-        }
-        Relationships: []
-      }
-      otp_logs: {
+      credits_history: {
         Row: {
           action: string
-          created_at: string
-          error_message: string | null
+          amount: number
+          created_at: string | null
           id: string
-          success: boolean
-          type: string
-          value: string
+          user_id: string
         }
         Insert: {
           action: string
-          created_at?: string
-          error_message?: string | null
+          amount: number
+          created_at?: string | null
           id?: string
-          success: boolean
-          type: string
-          value: string
+          user_id: string
         }
         Update: {
           action?: string
-          created_at?: string
-          error_message?: string | null
+          amount?: number
+          created_at?: string | null
           id?: string
-          success?: boolean
-          type?: string
-          value?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credits_history_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          credits: number
+          email: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          credits?: number
+          email?: string | null
+          id: string
+          updated_at?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          credits?: number
+          email?: string | null
+          id?: string
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -79,7 +78,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      cleanup_expired_otps: { Args: never; Returns: undefined }
+      add_credits: {
+        Args: { action_name: string; amount: number; user_id_input: string }
+        Returns: boolean
+      }
+      deduct_credits: {
+        Args: { action_name: string; amount: number; user_id_input: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

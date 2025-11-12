@@ -14,58 +14,40 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   const { toast } = useToast();
 
   useEffect(() => {
-    const validateSession = async () => {
+    const checkAuth = async () => {
       try {
-        const token = localStorage.getItem('otp_session');
+        const { data: { session } } = await supabase.auth.getSession();
         
-        if (!token) {
-          console.log('No session token found');
-          navigate('/otp-login');
+        if (!session) {
+          console.log('No active session');
+          navigate('/auth');
           return;
         }
 
-        // Server-side token validation
-        const { data, error } = await supabase.functions.invoke('validate-session', {
-          body: { token }
-        });
-
-        if (error) {
-          console.error('Session validation error:', error);
-          localStorage.removeItem('otp_session');
-          toast({
-            title: "Session Expired",
-            description: "Please log in again.",
-            variant: "destructive",
-          });
-          navigate('/otp-login');
-          return;
-        }
-
-        if (!data?.valid) {
-          console.log('Invalid session token');
-          localStorage.removeItem('otp_session');
-          toast({
-            title: "Invalid Session",
-            description: "Please log in again.",
-            variant: "destructive",
-          });
-          navigate('/otp-login');
-          return;
-        }
-
-        // Token is valid
-        console.log('Session validated successfully');
         setIsAuthenticated(true);
       } catch (err: any) {
-        console.error('Unexpected validation error:', err);
-        localStorage.removeItem('otp_session');
-        navigate('/otp-login');
+        console.error('Auth check error:', err);
+        toast({
+          title: "Authentication Error",
+          description: "Please log in again.",
+          variant: "destructive",
+        });
+        navigate('/auth');
       } finally {
         setIsValidating(false);
       }
     };
 
-    validateSession();
+    checkAuth();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        navigate('/auth');
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, [navigate, toast]);
 
   if (isValidating) {
@@ -73,7 +55,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Validating session...</p>
+          <p className="text-muted-foreground">Loading...</p>
         </div>
       </div>
     );

@@ -54,6 +54,17 @@ const PhotoEnhancer = () => {
   const enhanceImage = async () => {
     if (!originalImage) return;
 
+    // Check if user is logged in
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Authentication Required",
+        description: "Please log in to enhance images.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsProcessing(true);
     try {
       const blob = await fetch(originalImage).then((r) => r.blob());
@@ -65,13 +76,25 @@ const PhotoEnhancer = () => {
         body: formData,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check for insufficient credits error
+        if (error.message?.includes('402') || error.message?.includes('Insufficient credits')) {
+          toast({
+            title: "Insufficient Credits",
+            description: "You need at least 1 credit to enhance images.",
+            variant: "destructive",
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       if (data?.output_url) {
         setEnhancedImage(data.output_url);
         toast({
           title: "Enhancement complete!",
-          description: "Your image has been enhanced successfully.",
+          description: `Image enhanced! ${data.creditsRemaining || 0} credits remaining.`,
         });
       } else {
         throw new Error("No output URL received");

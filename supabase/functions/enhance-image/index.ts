@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.80.0";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -11,6 +12,52 @@ serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    // Get user from authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Authentication required' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid authentication' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Check user credits
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('id', user.id)
+      .single();
+
+    if (profileError || !profile) {
+      console.error('Error fetching profile:', profileError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch profile' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (profile.credits < 1) {
+      return new Response(
+        JSON.stringify({ error: 'Insufficient credits. You need at least 1 credit to enhance images.' }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get form data
     const formData = await req.formData();
     const image = formData.get('image');
     const upscaleLevelRaw = formData.get('upscale_level');
@@ -23,18 +70,40 @@ serve(async (req) => {
       );
     }
 
+    // Deduct credit
+    const { data: deductResult, error: deductError } = await supabase
+      .rpc('deduct_credits', {
+        user_id_input: user.id,
+        amount: 1,
+        action_name: 'image_enhancement'
+      });
+
+    if (deductError || !deductResult) {
+      console.error('Error deducting credits:', deductError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to process credits' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
       console.error('LOVABLE_API_KEY is not configured');
+      // Refund credit on configuration error
+      await supabase.rpc('add_credits', {
+        user_id_input: user.id,
+        amount: 1,
+        action_name: 'image_enhancement_refund'
+      });
       return new Response(
-        JSON.stringify({ error: 'API key not configured' }),
+        JSON.stringify({ error: 'Service not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log('Enhancing image with Lovable AI...');
 
-    // Convert image to base64 in chunks to avoid stack overflow
+    // Convert image to base64
     const imageBlob = image as Blob;
     const imageBuffer = await imageBlob.arrayBuffer();
     const uint8Array = new Uint8Array(imageBuffer);
@@ -83,6 +152,14 @@ serve(async (req) => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Lovable AI error:', response.status, errorText);
+      
+      // Refund credit on AI service error
+      await supabase.rpc('add_credits', {
+        user_id_input: user.id,
+        amount: 1,
+        action_name: 'image_enhancement_refund'
+      });
+
       return new Response(
         JSON.stringify({ error: 'AI enhancement failed' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -94,16 +171,27 @@ serve(async (req) => {
 
     if (!enhancedImageUrl) {
       console.error('No enhanced image in response');
+      
+      // Refund credit if no image returned
+      await supabase.rpc('add_credits', {
+        user_id_input: user.id,
+        amount: 1,
+        action_name: 'image_enhancement_refund'
+      });
+
       return new Response(
         JSON.stringify({ error: 'No enhanced image returned' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Enhancement successful');
+    console.log('Enhancement successful, credit deducted for user:', user.id);
 
     return new Response(
-      JSON.stringify({ output_url: enhancedImageUrl }),
+      JSON.stringify({ 
+        output_url: enhancedImageUrl,
+        creditsRemaining: profile.credits - 1
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

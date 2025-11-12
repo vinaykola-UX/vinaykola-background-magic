@@ -7,9 +7,7 @@ import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
 import Contact from "./pages/Contact";
-import OTPLogin from "./pages/OTPLogin";
-import Dashboard from "./pages/Dashboard";
-import OTPLogs from "./pages/OTPLogs";
+import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,9 +23,7 @@ const App = () => (
             <Route path="/" element={<Home />} />
             <Route path="/how-it-works" element={<HowItWorks />} />
             <Route path="/contact" element={<Contact />} />
-            <Route path="/otp-login" element={<OTPLogin />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/otp-logs" element={<OTPLogs />} />
+            <Route path="/auth" element={<Auth />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Layout>
