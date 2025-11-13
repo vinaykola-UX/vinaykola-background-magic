@@ -70,6 +70,56 @@ serve(async (req) => {
       );
     }
 
+    // Validate image is a Blob
+    if (!(image instanceof Blob)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid image format' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const imageBlob = image as Blob;
+
+    // Validate file size (max 10MB)
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    if (imageBlob.size > MAX_FILE_SIZE) {
+      return new Response(
+        JSON.stringify({ error: 'File too large. Maximum size is 10MB' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!validTypes.includes(imageBlob.type)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid file type. Only JPEG, PNG, and WebP are supported' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Validate upscale level
+    const upscaleNum = parseInt(upscaleLevel);
+    if (isNaN(upscaleNum) || upscaleNum < 1 || upscaleNum > 4) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid upscale level. Must be between 1 and 4' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Convert image to base64 for AI processing
+    const imageBuffer = await imageBlob.arrayBuffer();
+    const uint8Array = new Uint8Array(imageBuffer);
+    
+    let binary = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.slice(i, i + chunkSize);
+      binary += String.fromCharCode(...chunk);
+    }
+    const base64Image = btoa(binary);
+    const dataUrl = `data:${imageBlob.type};base64,${base64Image}`;
+
     // Deduct credit
     const { data: deductResult, error: deductError } = await supabase
       .rpc('deduct_credits', {
@@ -103,22 +153,8 @@ serve(async (req) => {
 
     console.log('Enhancing image with Lovable AI...');
 
-    // Convert image to base64
-    const imageBlob = image as Blob;
-    const imageBuffer = await imageBlob.arrayBuffer();
-    const uint8Array = new Uint8Array(imageBuffer);
-    
-    let binary = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.slice(i, i + chunkSize);
-      binary += String.fromCharCode(...chunk);
-    }
-    const base64Image = btoa(binary);
-    const dataUrl = `data:${imageBlob.type};base64,${base64Image}`;
-
-    // Use Lovable AI to enhance the image
-    const enhancementPrompt = `Enhance this image to improve its quality. Make it sharper, more detailed, and upscale it by ${upscaleLevel}x. Preserve the original content and style while improving clarity and resolution.`;
+    // Use Lovable AI to enhance the image (dataUrl already prepared above)
+    const enhancementPrompt = `Enhance this image to improve its quality. Make it sharper, more detailed, and upscale it by ${upscaleNum}x. Preserve the original content and style while improving clarity and resolution.`;
     
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
       method: 'POST',
