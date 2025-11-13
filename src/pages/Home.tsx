@@ -1,4 +1,4 @@
-import { Sparkles, Zap, Shield, Download, KeyRound } from "lucide-react";
+import { Sparkles, Zap, Shield, Download, Chrome } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import ImageUploader from "@/components/ImageUploader";
@@ -42,14 +42,14 @@ const Home = () => {
                   <Sparkles className="mr-2 h-5 w-5" />
                   Try Now - It's Free
                 </Button>
-                <Link to="/otp-login">
+                <Link to="/auth">
                   <Button 
                     size="lg" 
                     variant="outline"
                     className="text-lg px-8"
                   >
-                    <KeyRound className="mr-2 h-5 w-5" />
-                    OTP Login
+                    <Chrome className="mr-2 h-5 w-5" />
+                    Sign In with Google
                   </Button>
                 </Link>
               </div>
