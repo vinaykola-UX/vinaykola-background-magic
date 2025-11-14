@@ -37,31 +37,11 @@ export default function Auth() {
   }, [navigate, toast]);
 
   const handleGoogleLogin = async () => {
-    try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/`,
-        },
-      });
-
-      if (error) {
-        toast({
-          title: "Login Failed",
-          description: error.message || "Unable to connect with Google. Please try again.",
-          variant: "destructive",
-        });
-        setLoading(false);
-      }
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-        variant: "destructive",
-      });
-      setLoading(false);
-    }
+    toast({
+      title: "Service Temporarily Unavailable",
+      description: "Due to some issues we will solve this as early as possible. Thank you for visiting our website.",
+      variant: "destructive",
+    });
   };
 
   if (isChecking) {
